@@ -1,58 +1,46 @@
 import { Injectable } from '@nestjs/common';
 import { Bot } from 'grammy';
-import { CreateOrderDto } from './telegram.controller';
-
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 @Injectable()
 export class TelegramService {
   private bot: Bot;
+  private chatId: number;
+
 
   constructor() {
-    this.bot = new Bot(TELEGRAM_BOT_TOKEN || "sikim");
-    // You don't need to start polling if using webhook
+    const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+    const GROUP_CHAT_ID = process.env.GROUP_CHAT_ID;
+
+    if (!BOT_TOKEN) throw new Error('BOT_TOKEN missing!');
+    if (!GROUP_CHAT_ID) throw new Error('GROUP_CHAT_ID missing!');
+
+    this.bot = new Bot(BOT_TOKEN);
+    this.chatId = Number(GROUP_CHAT_ID);
+
+    // start the bot in background
+    this.bot.start({
+      onStart: (info) => console.log('Telegram bot started as', info.username),
+    });
   }
   
-
-  async sendOrderNotification(order: CreateOrderDto) {
-    const {
-      menuCategory,
-      menuItem,
-      quantity,
-      name,
-      phone,
-      address,
-      note,
-      branchId,
-      qrImage,
-    } = order;
-
-    const message = `
-📦 *New Order Received*
-
-*Menu Category:* ${menuCategory}
-*Menu Item:* ${menuItem}
-*Quantity:* ${quantity}
-
-*Customer Info:*
-Name: ${name}
-Phone: ${phone}
-Address: ${address}
-Note: ${note || '-'}
-
-*Branch ID:* ${branchId}
-${qrImage ? 'QR Uploaded ✅' : 'No QR'}
-`;
-
-    // Send message to your Telegram chat
-    await this.bot.api.sendMessage(TELEGRAM_BOT_TOKEN || "sikim", message, {
-      parse_mode: 'Markdown',
-    });
-
-    // Optionally send the QR image
-    if (qrImage) {
-      await this.bot.api.sendPhoto(TELEGRAM_CHAT_ID || "sikim", qrImage);
-    }
+  // Send text message
+  async sendMessage(message: string) {
+    await this.bot.api.sendMessage(this.chatId, message, { parse_mode: 'HTML' });
   }
+
+  // Send photo
+  async sendPhoto(photoUrl: string, caption?: string) {
+    await this.bot.api.sendPhoto(this.chatId, photoUrl, { caption, parse_mode: 'HTML' });
+  }
+
+async handleCallbackQuery(callbackQuery: any) {
+  const data = callbackQuery.data; // e.g., "confirm:1:Coffee"
+  
+  if (data.startsWith('confirm')) {
+    // TODO: Do your "send to another group" action here
+  } else if (data.startsWith('decline')) {
+    // nothing
+  }
+}
+
 }
