@@ -1,5 +1,6 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
+import { InlineKeyboard } from 'grammy';
 
 interface OrderDto {
   menuCategory: string;
@@ -69,10 +70,14 @@ ${itemsText}
       await this.telegramService.sendMessage(textMessage);
 
       if (first.qrImage) {
-        await this.telegramService.sendPhoto(
-          first.qrImage,
-          `<b>Proof of payment of ${first.name}</b>`
-        );
+        const caption = `<b>Proof of payment of ${first.name}</b>`;
+
+        // Create the buttons
+        const keyboard = new InlineKeyboard()
+          .text('✅ Confirm', `confirm_${first.name}_${first.phone}`)
+          .text('❌ Decline', `decline_${first.name}_${first.phone}`);
+
+        await this.telegramService.sendPhoto(first.qrImage, caption, keyboard);
       }
     }
 
