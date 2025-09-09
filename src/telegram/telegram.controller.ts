@@ -20,14 +20,13 @@ interface OrderDto {
 
 @Controller('order')
 export class TelegramController {
-  constructor(private readonly telegramService: TelegramService) { }
+  constructor(private readonly telegramService: TelegramService) {}
 
   @Post()
   async receiveOrders(@Body() body: any) {
-    // Normalize to array
     const orders: OrderDto[] = Array.isArray(body) ? body : [body];
 
-    // Group orders by customer + branchId + address
+    // Group orders by customer + branch + address + note
     const groupedOrders: Record<string, OrderDto[]> = {};
 
     for (const order of orders) {
@@ -46,10 +45,7 @@ export class TelegramController {
       );
 
       const itemsText = group
-        .map(
-          item =>
-            `• <b>${item.menuItem}</b> x${item.quantity} = <b>${item.price * item.quantity}$</b>`
-        )
+        .map(item => `• <b>${item.menuItem}</b> x${item.quantity} = <b>${item.price * item.quantity}$</b>`)
         .join('\n');
 
       const textMessage =
@@ -67,22 +63,23 @@ export class TelegramController {
 ${itemsText}
 ━━━━━━━━━━━━━━━`;
 
+      // Send text to main group
       await this.telegramService.sendMessage(textMessage);
 
+      // Send QR image with buttons if available
       if (first.qrImage) {
         const caption = `<b>Proof of payment of ${first.name}</b>`;
 
-        // Create the buttons
+        // Create inline keyboard with order-specific callback_data
+        const callbackId = encodeURIComponent(`${first.name}|${first.phone}|${first.address}|${first.branchId}`);
         const keyboard = new InlineKeyboard()
-          .text('✅ Confirm', `confirm_${first.name}_${first.phone}`)
-          .text('❌ Decline', `decline_${first.name}_${first.phone}`);
+          .text('✅ Confirm', `confirm:${callbackId}`)
+          .text('❌ Decline', `decline:${callbackId}`);
 
         await this.telegramService.sendPhoto(first.qrImage, caption, keyboard);
       }
     }
 
-
     return { success: true, message: `${Object.keys(groupedOrders).length} order(s) sent to Telegram group` };
   }
-
 }
