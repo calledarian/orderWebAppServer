@@ -17,11 +17,13 @@ export interface OrderDto {
 
   branchId: number;
   qrImage?: string; // URL or base64
+
+  telegramId: number;
 }
 
 @Controller('order')
 export class TelegramController {
-  constructor(private readonly telegramService: TelegramService) {}
+  constructor(private readonly telegramService: TelegramService) { }
 
   @Post()
   async receiveOrders(@Body() body: any) {
@@ -34,6 +36,9 @@ export class TelegramController {
       const key = `${order.name}|${order.phone}|${order.address}|${order.branchId}|${order.note || ''}`;
       if (!groupedOrders[key]) groupedOrders[key] = [];
       groupedOrders[key].push(order);
+      if (this.telegramService.isBlocked(order.telegramId)) {
+        return { success: false, message: `User ${order.telegramId} is blocked from placing orders.` };
+      }
     }
 
     // Process each group
