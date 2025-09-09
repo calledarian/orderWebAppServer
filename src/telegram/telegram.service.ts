@@ -19,10 +19,11 @@ export class TelegramService {
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
     const GROUP_CHAT_ID = process.env.GROUP_CHAT_ID;
     const WORKERS_GROUP_CHAT_ID = process.env.WORKERS_GROUP_CHAT_ID;
-
+    const FRONTEND_URL = process.env.FRONTEND_URL;
     if (!BOT_TOKEN) throw new Error('BOT_TOKEN missing!');
     if (!GROUP_CHAT_ID) throw new Error('GROUP_CHAT_ID missing!');
     if (!WORKERS_GROUP_CHAT_ID) throw new Error('WORKERS_GROUP_CHAT_ID missing!');
+    if (!FRONTEND_URL) throw new Error("FRONTEND_URL is not defined");
 
     // Load existing blocked users / counts from JSON
     this.loadBlockedUsers();
@@ -39,7 +40,7 @@ export class TelegramService {
             [
               {
                 text: "Open Web App",
-                web_app: { url: "https://c9a50a6c9600.ngrok-free.app/" },
+                web_app: { url: FRONTEND_URL },
               },
             ],
           ],
