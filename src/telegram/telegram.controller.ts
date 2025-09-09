@@ -1,8 +1,9 @@
 import { Controller, Post, Body } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
 import { InlineKeyboard } from 'grammy';
+import { v4 as uuidv4 } from 'uuid';
 
-interface OrderDto {
+export interface OrderDto {
   menuCategory: string;
   menuItem: string;
   quantity: number;
@@ -35,21 +36,21 @@ export class TelegramController {
       groupedOrders[key].push(order);
     }
 
+    // Process each group
     for (const groupKey in groupedOrders) {
       const group = groupedOrders[groupKey];
       const first = group[0];
 
-      const totalAmount = group.reduce(
-        (sum, item) => sum + item.price * item.quantity,
-        0
-      );
+      const orderId = uuidv4(); // Unique short ID for callback_data
+      this.telegramService.storePendingOrder(orderId, group);
+
+      const totalAmount = group.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
       const itemsText = group
         .map(item => `• <b>${item.menuItem}</b> x${item.quantity} = <b>${item.price * item.quantity}$</b>`)
         .join('\n');
 
-      const textMessage =
-        `📦 <b>New Order Received</b>
+      const textMessage = `📦 <b>New Order Received</b>
 ━━━━━━━━━━━━━━━
 💰 <b>Total:</b> <b>${totalAmount}$</b>
 
@@ -63,20 +64,21 @@ export class TelegramController {
 ${itemsText}
 ━━━━━━━━━━━━━━━`;
 
-      // Send text to main group
+      // Send order info to main group
       await this.telegramService.sendMessage(textMessage);
 
-      // Send QR image with buttons if available
+      // Send QR image with inline buttons if available
       if (first.qrImage) {
         const caption = `<b>Proof of payment of ${first.name}</b>`;
-
-        // Create inline keyboard with order-specific callback_data
-        const callbackId = encodeURIComponent(`${first.name}|${first.phone}|${first.address}|${first.branchId}`);
         const keyboard = new InlineKeyboard()
-          .text('✅ Confirm', `confirm:${callbackId}`)
-          .text('❌ Decline', `decline:${callbackId}`);
+          .text('✅ Confirm', `confirm:${orderId}`)
+          .text('❌ Decline', `decline:${orderId}`);
 
-        await this.telegramService.sendPhoto(first.qrImage, caption, keyboard);
+        try {
+          await this.telegramService.sendPhoto(first.qrImage, caption, keyboard);
+        } catch (err) {
+          console.error('Failed to send photo:', err);
+        }
       }
     }
 

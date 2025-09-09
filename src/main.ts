@@ -9,13 +9,6 @@ async function bootstrap() {
 
   // Enable JSON body parsing
   app.use(express.json());
-  app.use('/orders', rateLimit({
-    windowMs: 60 * 60 * 1000, // 30 hour
-    max: 2,                   // max 1 request per window
-    message: 'You can only place 2 order per hour',
-    standardHeaders: true,
-    legacyHeaders: false,
-  }));
   app.use(helmet());
 
 
@@ -26,7 +19,7 @@ async function bootstrap() {
   });
 
   // Use the port Render provides, fallback to 3001 locally
-  const port = process.env.PORT || 3005;
+  const port = process.env.PORT || 3001;
   await app.listen(port);
 
   console.log(`NestJS server is running on port ${port}`);
