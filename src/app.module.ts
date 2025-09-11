@@ -3,6 +3,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { TelegramModule } from './telegram/telegram.module';
+import { AuthModule } from './auth/auth.module';
 
 
 @Module({
@@ -11,7 +12,8 @@ import { TelegramModule } from './telegram/telegram.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    TelegramModule, 
+    TelegramModule,
+    AuthModule, 
   ],
   controllers: [AppController],
   providers: [AppService],
