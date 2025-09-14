@@ -122,7 +122,7 @@ export class TelegramService {
 
       const workerMessage = `✅ <b>New order confirmed!</b>
 ━━━━━━━━━━━━━━━
-🏬 <b>Branch:</b> ${first.branchId}
+🏬 <b>Branch:</b> ${first.branchName}
 🏠 <b>Delivery Address:</b> ${first.address}
 👤 <b>Customer:</b> ${first.name}
 📞 <b>Contact Phone:</b> ${first.phone}

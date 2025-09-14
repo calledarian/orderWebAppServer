@@ -15,7 +15,7 @@ export interface OrderDto {
   address: string;
   note?: string;
 
-  branchId: number;
+  branchName: string;
   qrImage?: string; // URL or base64
 
   telegramId: number;
@@ -33,7 +33,7 @@ export class TelegramController {
     const groupedOrders: Record<string, OrderDto[]> = {};
 
     for (const order of orders) {
-      const key = `${order.name}|${order.phone}|${order.address}|${order.branchId}|${order.note || ''}`;
+      const key = `${order.name}|${order.phone}|${order.address}|${order.branchName}|${order.note || ''}`;
       if (!groupedOrders[key]) groupedOrders[key] = [];
       groupedOrders[key].push(order);
       if (this.telegramService.isBlocked(order.telegramId)) {
@@ -62,7 +62,7 @@ export class TelegramController {
 👤 <b>Name:</b> <b>${first.name}</b>
 📞 <b>Phone:</b> <b>${first.phone}</b>
 🏠 <b>Address:</b> <b>${first.address}</b>
-🏬 <b>Branch ID:</b> <b>${first.branchId}</b>
+🏬 <b>Branch:</b> <b>${first.branchName}</b>
 📝 <b>Note:</b> <b>${first.note || 'None'}</b>
 
 🍽️ <b>Items:</b>
