@@ -2,24 +2,7 @@ import { Controller, Post, Body } from '@nestjs/common';
 import { TelegramService } from './telegram.service';
 import { InlineKeyboard } from 'grammy';
 import { v4 as uuidv4 } from 'uuid';
-
-export interface OrderDto {
-  menuCategory: string;
-  menuItem: string;
-  quantity: number;
-  total: number;
-  price: number;
-
-  name: string;
-  phone: string;
-  address: string;
-  note?: string;
-
-  branchName: string;
-  qrImage?: string; // URL or base64
-
-  telegramId: number;
-}
+import { OrderDto } from './interfaces/order.interface';
 
 @Controller('order')
 export class TelegramController {
@@ -29,7 +12,6 @@ export class TelegramController {
   async receiveOrders(@Body() body: any) {
     const orders: OrderDto[] = Array.isArray(body) ? body : [body];
 
-    // Group orders by customer + branch + address + note
     const groupedOrders: Record<string, OrderDto[]> = {};
 
     for (const order of orders) {
@@ -41,16 +23,13 @@ export class TelegramController {
       }
     }
 
-    // Process each group
     for (const groupKey in groupedOrders) {
       const group = groupedOrders[groupKey];
       const first = group[0];
-
-      const orderId = uuidv4(); // Unique short ID for callback_data
+      const orderId = uuidv4();
       this.telegramService.storePendingOrder(orderId, group);
 
       const totalAmount = group.reduce((sum, item) => sum + item.price * item.quantity, 0);
-
       const itemsText = group
         .map(item => `• <b>${item.menuItem}</b> x${item.quantity} = <b>${item.price * item.quantity}$</b>`)
         .join('\n');
@@ -69,10 +48,8 @@ export class TelegramController {
 ${itemsText}
 ━━━━━━━━━━━━━━━`;
 
-      // Send order info to main group
       await this.telegramService.sendMessage(textMessage);
 
-      // Send QR image with inline buttons if available
       if (first.qrImage) {
         const caption = `<b>Proof of payment of ${first.name}</b>`;
         const keyboard = new InlineKeyboard()
