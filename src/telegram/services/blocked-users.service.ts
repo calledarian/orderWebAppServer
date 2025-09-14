@@ -7,7 +7,7 @@ import * as path from 'path';
 export class BlockedUsersService {
     private blockedUsers: Record<number, boolean> = {};
     private declineCount: Record<number, number> = {};
-    private readonly storagePath = path.join(__dirname, '..', '..', '..', 'data', 'blockedUsers.json');
+    private readonly storagePath = path.join(__dirname, '..', 'data', 'blockedUsers.json');
     private readonly DECLINE_LIMIT = 3;
 
     constructor() {
