@@ -1,4 +1,3 @@
-// src/telegram/services/blocked-users.service.ts
 import { Injectable } from '@nestjs/common';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -7,11 +6,26 @@ import * as path from 'path';
 export class BlockedUsersService {
     private blockedUsers: Record<number, boolean> = {};
     private declineCount: Record<number, number> = {};
-    private readonly storagePath = path.join(__dirname, '..', 'data', 'blockedUsers.json');
-    private readonly DECLINE_LIMIT = 3;
+
+    private readonly dataDir = path.join(__dirname, '..', '..', '..', 'data');
+    private readonly storagePath = path.join(this.dataDir, 'blockedUsers.json');
+    private readonly DECLINE_LIMIT = 1;
 
     constructor() {
+        this.ensureDataDirectoryExists();
         this.loadBlockedUsers();
+    }
+
+    private ensureDataDirectoryExists() {
+        if (!fs.existsSync(this.dataDir)) {
+            try {
+                // The recursive: true option ensures the data folder is created
+                fs.mkdirSync(this.dataDir, { recursive: true });
+                console.log(`Created data directory at ${this.dataDir}`);
+            } catch (err) {
+                console.error('Failed to create data directory:', err);
+            }
+        }
     }
 
     private loadBlockedUsers() {
@@ -31,6 +45,7 @@ export class BlockedUsersService {
 
     private saveBlockedUsers() {
         try {
+            this.ensureDataDirectoryExists();
             const data = {
                 blockedUsers: this.blockedUsers,
                 declineCount: this.declineCount,
