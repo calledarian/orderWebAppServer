@@ -52,7 +52,7 @@ ${itemsText}
 
       if (first.qrImage) {
         const caption = `
-</b>Order CODE:${orderId}</b>
+<b>Order CODE:${orderId}</b>
 <b>Total Amount: ${totalAmount}$</b>`;
         const keyboard = new InlineKeyboard()
           .text('✅ Confirm', `confirm:${orderId}`)
