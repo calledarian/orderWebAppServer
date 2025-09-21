@@ -21,14 +21,30 @@ export class CallbackHandlerService {
         bot.callbackQuery(new RegExp(`^${OrderStatus.Complete}:.+`), (ctx) => this.handleComplete(ctx, mainChatId));
     }
 
+    private async safeAnswerCallback(ctx: any, text?: string, showAlert = false) {
+        if (!ctx.callbackQuery) return;
+        try {
+            await ctx.answerCallbackQuery({ text, show_alert: showAlert });
+        } catch (err) {
+            console.warn('Callback query expired, skipping answer.');
+        }
+    }
+
     private async handleConfirm(ctx: any, workersChatId: number) {
         const orderId = ctx.callbackQuery.data!.split(':')[1];
+
+        // Immediately acknowledge Telegram
+        await this.safeAnswerCallback(ctx);
+
+        // Then process the order
         const orders = this.orderStateService.activateOrder(orderId);
         if (!orders) {
-            return ctx.answerCallbackQuery({ text: 'Order not found', show_alert: true });
+            await this.safeAnswerCallback(ctx, 'Order not found', true);
+            return;
         }
 
-        await ctx.answerCallbackQuery({ text: 'Order confirmed!' });
+        // Optional: send confirmation to user
+        await this.safeAnswerCallback(ctx, 'Order confirmed!');
 
         const first = orders[0];
         const itemsText = this.formatOrderItems(orders);
@@ -55,7 +71,7 @@ ${itemsText}
     }
 
     private async handleDecline(ctx: any) {
-        await ctx.answerCallbackQuery({ text: 'Order declined!' });
+        await this.safeAnswerCallback(ctx, 'Order declined!');
         const orderId = ctx.callbackQuery.data!.split(':')[1];
         const orders = this.orderStateService.getPendingOrder(orderId);
         if (!orders) return;
@@ -67,9 +83,9 @@ ${itemsText}
     private async handlePrepare(ctx: any, mainChatId: number) {
         const orderId = ctx.callbackQuery.data!.split(':')[1];
         const orders = this.orderStateService.getActiveOrder(orderId);
-        if (!orders) return ctx.answerCallbackQuery({ text: 'Order not found', show_alert: true });
+        if (!orders) return this.safeAnswerCallback(ctx, 'Order not found', true);
 
-        await ctx.answerCallbackQuery({ text: "Marked as preparing" });
+        await this.safeAnswerCallback(ctx, "Marked as preparing");
         const workerName = ctx.from?.first_name || "Worker";
         await ctx.api.sendMessage(mainChatId, `👨‍🍳 Order ${orderId} is being prepared by ${workerName}`);
 

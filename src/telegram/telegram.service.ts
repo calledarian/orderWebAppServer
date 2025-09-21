@@ -47,6 +47,10 @@ export class TelegramService {
       });
     });
 
+    this.bot.catch((err) => {
+      console.error('Bot error caught:', err.error);
+    });
+
     this.bot.start({ onStart: (info) => console.log('Telegram bot started as', info.username) });
   }
 
