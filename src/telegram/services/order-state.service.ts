@@ -1,35 +1,48 @@
+import { Injectable } from "@nestjs/common";
+import { OrderDto } from "../interfaces/order.interface";
+
 // src/telegram/services/order-state.service.ts
-import { Injectable } from '@nestjs/common';
-import { OrderDto } from '../interfaces/order.interface';
+export enum OrderStatusInternal {
+    Pending = 'pending',
+    Active = 'active',
+    Declined = 'declined',
+    Completed = 'completed',
+}
 
 @Injectable()
 export class OrderStateService {
-    private pendingOrders: Record<string, OrderDto[]> = {};
-    private activeOrders: Record<string, OrderDto[]> = {};
+    private orders: Record<string, { data: OrderDto[]; status: OrderStatusInternal }> = {};
 
     storePendingOrder(orderId: string, orders: OrderDto[]) {
-        this.pendingOrders[orderId] = orders;
+        this.orders[orderId] = { data: orders, status: OrderStatusInternal.Pending };
     }
 
-    getPendingOrder(orderId: string): OrderDto[] | undefined {
-        return this.pendingOrders[orderId];
+    getOrder(orderId: string) {
+        return this.orders[orderId];
     }
 
-    activateOrder(orderId: string): OrderDto[] | undefined {
-        const orders = this.pendingOrders[orderId];
-        if (orders) {
-            this.activeOrders[orderId] = orders;
-            delete this.pendingOrders[orderId];
-            return orders;
+    activateOrder(orderId: string) {
+        const order = this.orders[orderId];
+        if (order && order.status === OrderStatusInternal.Pending) {
+            order.status = OrderStatusInternal.Active;
+            return order.data;
         }
         return undefined;
     }
 
-    getActiveOrder(orderId: string): OrderDto[] | undefined {
-        return this.activeOrders[orderId];
+    declineOrder(orderId: string) {
+        const order = this.orders[orderId];
+        if (order && order.status === OrderStatusInternal.Pending) {
+            order.status = OrderStatusInternal.Declined;
+            return order.data;
+        }
+        return undefined;
     }
 
     completeOrder(orderId: string) {
-        delete this.activeOrders[orderId];
+        const order = this.orders[orderId];
+        if (order) {
+            order.status = OrderStatusInternal.Completed;
+        }
     }
 }

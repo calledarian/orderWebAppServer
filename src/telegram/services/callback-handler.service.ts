@@ -2,7 +2,7 @@
 import { Injectable } from '@nestjs/common';
 import { Bot, InlineKeyboard } from 'grammy';
 import { OrderStatus } from '../enums/order-status.enum';
-import { OrderStateService } from './order-state.service';
+import { OrderStateService, OrderStatusInternal } from './order-state.service';
 import { BlockedUsersService } from './blocked-users.service';
 import { OrderDto } from '../interfaces/order.interface';
 
@@ -25,26 +25,23 @@ export class CallbackHandlerService {
         if (!ctx.callbackQuery) return;
         try {
             await ctx.answerCallbackQuery({ text, show_alert: showAlert });
-        } catch (err) {
+        } catch {
             console.warn('Callback query expired, skipping answer.');
         }
     }
 
     private async handleConfirm(ctx: any, workersChatId: number) {
         const orderId = ctx.callbackQuery.data!.split(':')[1];
-
-        // Immediately acknowledge Telegram
         await this.safeAnswerCallback(ctx);
 
-        // Then process the order
         const orders = this.orderStateService.activateOrder(orderId);
         if (!orders) {
-            await this.safeAnswerCallback(ctx, 'Order not found', true);
+            await this.safeAnswerCallback(ctx, 'This order has already been processed.', true);
             return;
         }
 
-        // Optional: send confirmation to user
-        await this.safeAnswerCallback(ctx, 'Order confirmed!');
+        // Remove inline keyboard immediately to prevent double clicks
+        await ctx.editMessageReplyMarkup({ reply_markup: undefined });
 
         const first = orders[0];
         const itemsText = this.formatOrderItems(orders);
@@ -63,7 +60,6 @@ ${itemsText}
 ━━━━━━━━━━━━━━━`;
 
         const keyboard = new InlineKeyboard().text("👨‍🍳 I'm preparing", `${OrderStatus.Prepare}:${orderId}`);
-
         await ctx.api.sendMessage(workersChatId, workerMessage, {
             parse_mode: "HTML",
             reply_markup: keyboard,
@@ -71,10 +67,18 @@ ${itemsText}
     }
 
     private async handleDecline(ctx: any) {
-        await this.safeAnswerCallback(ctx, 'Order declined!');
         const orderId = ctx.callbackQuery.data!.split(':')[1];
-        const orders = this.orderStateService.getPendingOrder(orderId);
-        if (!orders) return;
+        await this.safeAnswerCallback(ctx);
+
+        const orders = this.orderStateService.declineOrder(orderId);
+        if (!orders) {
+            await this.safeAnswerCallback(ctx, 'This order has already been processed.', true);
+            return;
+        }
+
+        // Remove inline keyboard
+        await ctx.editMessageReplyMarkup({ reply_markup: undefined });
+
         const first = orders[0];
         this.blockedUsersService.handleDecline(first.telegramId);
         this.orderStateService.completeOrder(orderId);
@@ -82,13 +86,16 @@ ${itemsText}
 
     private async handlePrepare(ctx: any, mainChatId: number) {
         const orderId = ctx.callbackQuery.data!.split(':')[1];
-        const orders = this.orderStateService.getActiveOrder(orderId);
-        if (!orders) return this.safeAnswerCallback(ctx, 'Order not found', true);
+        const order = this.orderStateService.getOrder(orderId);
+        if (!order || order.status !== OrderStatusInternal.Active) {
+            return this.safeAnswerCallback(ctx, 'Order not found or not active', true);
+        }
 
         await this.safeAnswerCallback(ctx, "Marked as preparing");
         const workerName = ctx.from?.first_name || "Worker";
         await ctx.api.sendMessage(mainChatId, `👨‍🍳 Order ${orderId} is being prepared by ${workerName}`);
 
+        // Replace buttons with next stage
         await ctx.editMessageReplyMarkup({
             reply_markup: new InlineKeyboard().text("🛵 I'm delivering", `${OrderStatus.Deliver}:${orderId}`)
         });
@@ -96,10 +103,12 @@ ${itemsText}
 
     private async handleDeliver(ctx: any, mainChatId: number) {
         const orderId = ctx.callbackQuery.data!.split(':')[1];
-        const orders = this.orderStateService.getActiveOrder(orderId);
-        if (!orders) return ctx.answerCallbackQuery({ text: 'Order not found', show_alert: true });
+        const order = this.orderStateService.getOrder(orderId);
+        if (!order || order.status !== OrderStatusInternal.Active) {
+            return this.safeAnswerCallback(ctx, 'Order not found or not active', true);
+        }
 
-        await ctx.answerCallbackQuery({ text: "Marked as delivering" });
+        await this.safeAnswerCallback(ctx, "Marked as delivering");
         const workerName = ctx.from?.first_name || "Worker";
         await ctx.api.sendMessage(mainChatId, `🛵 Order ${orderId} is now out for delivery by ${workerName}`);
 
@@ -110,14 +119,17 @@ ${itemsText}
 
     private async handleComplete(ctx: any, mainChatId: number) {
         const orderId = ctx.callbackQuery.data!.split(':')[1];
-        const orders = this.orderStateService.getActiveOrder(orderId);
-        if (!orders) return ctx.answerCallbackQuery({ text: 'Order not found', show_alert: true });
+        const order = this.orderStateService.getOrder(orderId);
+        if (!order || order.status !== OrderStatusInternal.Active) {
+            return this.safeAnswerCallback(ctx, 'Order not found or not active', true);
+        }
 
-        await ctx.answerCallbackQuery({ text: "Order completed" });
+        await this.safeAnswerCallback(ctx, "Order completed");
         const workerName = ctx.from?.first_name || "Worker";
         await ctx.api.sendMessage(mainChatId, `✅ Order ${orderId} has been completed by ${workerName}`);
 
-        await ctx.editMessageReplyMarkup();
+        // Remove buttons
+        await ctx.editMessageReplyMarkup({ reply_markup: undefined });
         this.orderStateService.completeOrder(orderId);
     }
 
