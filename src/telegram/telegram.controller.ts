@@ -9,27 +9,33 @@ export class TelegramController {
   constructor(private readonly telegramService: TelegramService) { }
 
   @Post()
-  async receiveOrders(@Body() body: any) {
-    const orders: OrderDto[] = Array.isArray(body) ? body : [body];
+async receiveOrders(@Body() body: OrderDto | OrderDto[]) {
+  const orders: OrderDto[] = Array.isArray(body) ? body : [body];
+  const groupedOrders: Record<string, OrderDto[]> = {};
+  const blockedOrders: string[] = [];
+  const failedOrders: string[] = [];
 
-    const groupedOrders: Record<string, OrderDto[]> = {};
+  // group orders and check for blocked users
+  for (const order of orders) {
+    const key = `${order.name}|${order.phone}|${order.address}|${order.branchName}|${order.note || ''}`;
+    groupedOrders[key] ??= [];
+    groupedOrders[key].push(order);
 
-    for (const order of orders) {
-      const key = `${order.name}|${order.phone}|${order.address}|${order.branchName}|${order.note || ''}`;
-      if (!groupedOrders[key]) groupedOrders[key] = [];
-      groupedOrders[key].push(order);
-      if (this.telegramService.isBlocked(order.telegramId)) {
-        return { success: false, message: `User ${order.telegramId} is blocked from placing orders.` };
-      }
+    if (this.telegramService.isBlocked(order.telegramId)) {
+      console.warn(`🚫 Blocked user tried to order: ${order.telegramId}`);
+      blockedOrders.push(order.telegramId);
     }
+  }
 
-    for (const groupKey in groupedOrders) {
-      const group = groupedOrders[groupKey];
-      const first = group[0];
-      const orderId = uuidv4();
+  // process groups one by one (20/day is fine)
+  for (const [groupKey, group] of Object.entries(groupedOrders)) {
+    const first = group[0];
+    const orderId = uuidv4();
+    const totalAmount = group.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+    try {
       this.telegramService.storePendingOrder(orderId, group);
 
-      const totalAmount = group.reduce((sum, item) => sum + item.price * item.quantity, 0);
       const itemsText = group
         .map(item => `• <b>${item.menuItem}</b> x${item.quantity} = <b>${item.price * item.quantity}$</b>`)
         .join('\n');
@@ -55,15 +61,18 @@ ${itemsText}
         const keyboard = new InlineKeyboard()
           .text('✅ Confirm', `confirm:${orderId}`)
           .text('❌ Decline', `decline:${orderId}`);
-
-        try {
-          await this.telegramService.sendPhoto(first.qrImage, caption, keyboard);
-        } catch (err) {
-          console.error('Failed to send photo:', err);
-        }
+        await this.telegramService.sendPhoto(first.qrImage, caption, keyboard);
       }
+    } catch (err) {
+      console.error(`❌ Failed to process order ${orderId}:`, err);
+      failedOrders.push(orderId);
     }
-
-    return { success: true, message: `${Object.keys(groupedOrders).length} order(s) sent to Telegram group` };
   }
+
+  return {
+    success: failedOrders.length === 0,
+    sent: Object.keys(groupedOrders).length - failedOrders.length,
+    failed: failedOrders,
+    blocked: blockedOrders,
+  };
 }
