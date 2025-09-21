@@ -17,9 +17,14 @@ export class TelegramService {
     private readonly orderStateService: OrderStateService,
   ) {
     const BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+
     const GROUP_CHAT_ID = process.env.GROUP_CHAT_ID;
     const WORKERS_GROUP_CHAT_ID = process.env.WORKERS_GROUP_CHAT_ID;
+
     const FRONTEND_URL = process.env.FRONTEND_URL;
+
+    const WELCOME_MESSAGE = process.env.WELCOME_MESSAGE || "Welcome! Use the button below to place an order.";
+    const WELCOME_BUTTON = process.env.WELCOME_BUTTON || "Place Order Now!";
 
     if (!BOT_TOKEN) throw new Error('BOT_TOKEN missing!');
     if (!GROUP_CHAT_ID) throw new Error('GROUP_CHAT_ID missing!');
@@ -33,12 +38,12 @@ export class TelegramService {
     this.callbackHandlerService.registerHandlers(this.bot, this.chatId, this.workersChatId);
 
     this.bot.command("start", async (ctx) => {
-      await ctx.reply("Welcome! Click below to place your order:", {
+      await ctx.reply(WELCOME_MESSAGE, {
         reply_markup: {
           inline_keyboard: [
             [
               {
-                text: "Open Web App",
+                text: WELCOME_BUTTON,
                 web_app: { url: FRONTEND_URL },
               },
             ],

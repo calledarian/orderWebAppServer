@@ -19,14 +19,14 @@ export class TelegramController {
       if (!groupedOrders[key]) groupedOrders[key] = [];
       groupedOrders[key].push(order);
       if (this.telegramService.isBlocked(order.telegramId)) {
-        return { success: false, message: `User ${order.telegramId} is blocked from placing orders.` };
+        return { success: false, message: `User ID: ${order.telegramId} is blocked from placing orders.` };
       }
     }
 
     for (const groupKey in groupedOrders) {
       const group = groupedOrders[groupKey];
       const first = group[0];
-      const orderId = uuidv4();
+      const orderId = uuidv4().slice(0, 4).toUpperCase();
       this.telegramService.storePendingOrder(orderId, group);
 
       const totalAmount = group.reduce((sum, item) => sum + item.price * item.quantity, 0);
@@ -34,7 +34,7 @@ export class TelegramController {
         .map(item => `• <b>${item.menuItem}</b> x${item.quantity} = <b>${item.price * item.quantity}$</b>`)
         .join('\n');
 
-      const textMessage = `📦 <b>New Order Received</b>
+      const textMessage = `📦 <b>New Order Received CODE:${orderId}</b>
 ━━━━━━━━━━━━━━━
 💰 <b>Total:</b> <b>${totalAmount}$</b>
 
@@ -51,7 +51,9 @@ ${itemsText}
       await this.telegramService.sendMessage(textMessage);
 
       if (first.qrImage) {
-        const caption = `<b>Proof of payment of ${first.name}</b>`;
+        const caption = `
+</b>Order CODE:${orderId}</b>
+<b>Total Amount: ${totalAmount}$</b>`;
         const keyboard = new InlineKeyboard()
           .text('✅ Confirm', `confirm:${orderId}`)
           .text('❌ Decline', `decline:${orderId}`);

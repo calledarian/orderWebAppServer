@@ -46,7 +46,7 @@ export class CallbackHandlerService {
         const first = orders[0];
         const itemsText = this.formatOrderItems(orders);
 
-        const workerMessage = `✅ <b>New order confirmed!</b>
+        const workerMessage = `✅ <b>New order confirmed! code: ${orderId}</b>
 ━━━━━━━━━━━━━━━
 🏬 <b>Branch:</b> ${first.branchName}
 🏠 <b>Delivery Address:</b> ${first.address}
