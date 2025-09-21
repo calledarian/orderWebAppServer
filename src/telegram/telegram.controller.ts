@@ -9,7 +9,7 @@ export class TelegramController {
   constructor(private readonly telegramService: TelegramService) { }
 
   @Post()
-async receiveOrders(@Body() body: OrderDto | OrderDto[]) {
+async receiveOrders(@Body() body: any) {
   const orders: OrderDto[] = Array.isArray(body) ? body : [body];
   const groupedOrders: Record<string, OrderDto[]> = {};
   const blockedOrders: string[] = [];
